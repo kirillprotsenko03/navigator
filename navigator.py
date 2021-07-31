@@ -17,6 +17,9 @@ RED = (255, 0, 0)
 GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 
+# radius of circle
+RADIUS = 5
+
 
 class Station:
       """ draw station on screen, have a distanse between another stations
@@ -25,12 +28,12 @@ class Station:
       def __init__(self, screen, x: int, y: int, station_id: int) -> None:
             self.screen = screen
             self.color = GREEN
+            self.radius = RADIUS  # the radius of circle around station
             # coordinates of station
             self.x = x  
             self.y = y
             # number of emergence on the screen
             self.station_id = station_id
-            self.radius = 5  # the radius of circle around station
 
       def get_x(self) -> int:
             return self.x
@@ -44,6 +47,8 @@ class Station:
       def get_id(self) -> int:
             return self.station_id
 
+      def change_color(self, color) -> None:
+            self.color = color
 
       def draw(self) -> None:
             pygame.draw.circle(self.screen, self.color,
@@ -55,24 +60,54 @@ class Map:
 
       def __init__(self, screen) -> None:
             self.screen = screen
-            self.stations = {}  # {int id_station: class Station}
+            self.stations = {} # {int id_station: class Station}
             self.stations_connect = {}  # {int id_station: list connected_station}
             self.count_station = 0
 
-      def get_distance(first_id: int, second_id: int) -> float:
+      def _get_distance(self, first_id: int, second_id: int) -> float:
             """return distance between two stations """
+            if first_id == second_id:
+                  return math.inf
+            if first_id not in self.stations_connect or second_id not in self.stations_connect:
+                  return math.inf
+            if second_id not in self.stations_connect[first_id]:
+                  return math.inf
             first_station = self.stations[first_id]
             second_station = self.stations[second_id]
             x1 = first_station.get_x()
             y1 = first_station.get_y()
             x2 = second_station.get_x()
             y2 = second_station.get_y()
-            distance = math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)  # just Pythagoras theorem
+            distance = math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)  # just theorem of Pythagoras
             return distance
 
-      def dijkstra(self, first_id: int, second_id: int) -> tuple:
-            return ('1ggsd', 1, 4)
-
+      def dijkstra(self, first_id: int, second_id: int) -> list:
+            d = {i+1: [math.inf, 0] for i in range(len(self.stations))}
+            d[first_id] = [0, first_id]
+            seen = []
+            for _ in range(len(self.stations)):
+                  # find smallest distance
+                  m = math.inf
+                  for station in d:
+                        if d[station][0] <= m and station not in seen:
+                              w = station
+                              m = d[station][0]
+                  seen.append(w)
+                  # find distance from this station to anothers
+                  way_before = d[w][0]
+                  for station in d:
+                        distance = self._get_distance(w, station) + way_before
+                        if distance < d[station][0]:
+                              d[station][0] = distance
+                              d[station][1] = w
+            res = []
+            a = second_id
+            while a != first_id:
+                  res.append(a)
+                  a = d[a][1]
+            res.append(first_id)
+            return res[::-1]
+                              
       def get_stations(self) -> dict:
             return self.stations
 
@@ -84,9 +119,6 @@ class Map:
             new_id = self.count_station
             station = Station(self.screen, x, y, new_id)
             self.stations[new_id] = station
-
-      def del_station(self, id_station):
-            del self.stations[id_station]
 
       def add_connection_station(self, first_id: int, second_id: int) -> None:
             if first_id != second_id:
@@ -139,25 +171,25 @@ while True:
                         if in_circle(x, y, x_circle, y_circle, radius):
                               id_station = station.get_id()
                               
-                  if  game_mode == 'adding':
-                        if id_station:  # if you click to circle. id_station is id of circle you click
-                              city_map.del_station(id_station)
+                  if id_station:  # if you click to circle. id_station is id of circle you click
+                        if not choosen_station:
+                              choosen_station = id_station
                         else:
+                              first_id = choosen_station
+                              second_id = id_station
+                              if game_mode == 'connecting':
+                                    city_map.add_connection_station(first_id, second_id)
+                              if game_mode == 'finding':
+                                    path = city_map.dijkstra(first_id, second_id)
+                                    for station in city_map.get_stations().values():
+                                          if station.get_id() in path:
+                                                station.change_color(RED)
+                              choosen_station = False
+                        
+                  else:
+                        if game_mode == 'adding':
                               city_map.add_station(x, y)
 
-                  else:
-                        if id_station:
-                              if choosen_station == False:
-                                    choosen_station = id_station
-                              else:
-                                    first_id = choosen_station
-                                    second_id = id_station
-                                    if game_mode == 'connecting':
-                                          city_map.add_connection_station(first_id, second_id)
-                                    if game_mode == 'finding':
-                                          path = city_map.dijkstra(first_id, second_id)
-                                          print(path)
-                                    choosen_station = False
 
 
       # draw all elements of game
